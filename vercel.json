@@ -2,14 +2,14 @@
   "buildCommand": "npm run vercel-build",
   "builds": [
     {
-      "src": "dist/src/serverless.js",
+      "src": "dist/serverless.js",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "dist/src/serverless.js"
+      "dest": "dist/serverless.js"
     }
   ]
 }
