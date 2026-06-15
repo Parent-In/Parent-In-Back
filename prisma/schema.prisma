@@ -1,0 +1,250 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id                    String               @id @default(uuid())
+  email                 String               @unique
+  password              String?
+  name                  String
+  enable                Boolean              @default(true)
+  isEmailVerified       Boolean              @default(false)
+  isOnboardingCompleted Boolean              @default(false)
+  googleId              String?              @unique
+  lastName              String?
+  onboarding            OnboardingResponses?
+
+  @@map("users")
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([email, code])
+  @@map("email_verification_tokens")
+}
+
+model OnboardingResponses {
+  id                      String               @id @default(cuid())
+  userId                  String               @unique
+  userRole                RoleEnum?
+  familyType              FamilyTypeEnum?
+  familyTypeOther         String?
+  currentStage            StageEnum?
+  trimester               TrimesterEnum?
+  estimatedDueDate        DateTime?
+  babyBirthDate           DateTime?
+  licenseDuration         LicenseDurationEnum?
+  licenseDurationOther    String?
+  workModality            WorkModalityEnum?
+  workModalityOther       String?
+  returnDate              DateTime?
+
+  // User data for step 1
+  birthday                DateTime?
+  city                    String?
+  country                 String?
+  genre                   String?
+  phone                   String?
+  userType                String?
+
+  // Parental specific fields (step 2)
+  currentEmploymentStatus String?
+  jobRole                 String?
+  numberOfChildren        String?
+  organizationType        String?
+  userDescription         String?
+
+  // Organization specific fields (16-step flow)
+  organizationName        String?
+  organizationSize        OrganizationSizeEnum?
+  organizationIndustry    String?
+  organizationRole        String?
+  organizationStage       OrganizationStageEnum?
+  genderDistribution      String?
+  percentageMothers       String?
+  percentageFathers       String?
+  maternityLeaveDays      String?
+  paternityLeaveDays      String?
+  flexibilityScore        Int?
+  workLifeBalanceScore    Int?
+  emotionalSupportScore   Int?
+  organizationalMaturity  String?
+
+  // Organization multiselect fields
+  currentInitiatives      String[]             @default([])
+  desiredInitiatives      String[]             @default([])
+  organizationalChallenges String[]             @default([])
+
+  // Professional specific fields
+  linkedinUrl             String?
+  cvUrl                   String?
+  areasOfSpecialization   String[]             @default([])
+  estimatedPricePerSession Decimal?
+  motivation              String?
+
+  learningTopics          String[]             @default([])
+  preLicenseSupportNeeds  String[]             @default([])
+  licenseSupportNeeds     String[]             @default([])
+  postLicenseSupportNeeds String[]             @default([])
+  is_onboarding_completed Boolean              @default(false)
+  createdAt               DateTime             @default(now())
+  completedAt             DateTime?
+  updatedAt               DateTime             @updatedAt
+  user                    User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checkInResponses        CheckInResponse[]
+  checkInScores           CheckInScore[]
+  checkInReminders        CheckInReminder[]
+
+  @@map("onboarding_responses")
+}
+
+model CheckInQuestion {
+  id                String               @id @default(uuid())
+  stage             StageEnum
+  category          CheckInCategoryEnum
+  questionText      String
+  order             Int
+  active            Boolean              @default(true)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@unique([stage, category, order])
+  @@map("check_in_questions")
+}
+
+model CheckInResponse {
+  id                  String               @id @default(uuid())
+  userId              String
+  onboardingResponseId String
+  stage               StageEnum
+  category            CheckInCategoryEnum
+  questionId          String
+  rating              Int                  // 1-5
+  weekNumber          Int
+  year                Int
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  onboardingResponse  OnboardingResponses  @relation(fields: [onboardingResponseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, weekNumber, year, category, questionId])
+  @@map("check_in_responses")
+}
+
+model CheckInScore {
+  id                  String               @id @default(uuid())
+  userId              String
+  onboardingResponseId String
+  stage               StageEnum
+  scoreType           String               // "work", "wellbeing", "home"
+  score               Decimal              // 1.0-5.0
+  trafficLight        TrafficLightEnum
+  weekStartDate       DateTime
+  weekNumber          Int
+  year                Int
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  onboardingResponse  OnboardingResponses  @relation(fields: [onboardingResponseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, weekNumber, year, scoreType])
+  @@map("check_in_scores")
+}
+
+model CheckInReminder {
+  id                  String               @id @default(uuid())
+  userId              String
+  onboardingResponseId String
+  weekNumber          Int
+  year                Int
+  sentAt              DateTime
+  completedAt         DateTime?
+  createdAt           DateTime             @default(now())
+
+  onboardingResponse  OnboardingResponses  @relation(fields: [onboardingResponseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, weekNumber, year])
+  @@map("check_in_reminders")
+}
+
+enum StageEnum {
+  PRE_LICENSE
+  LICENSE
+  POST_LICENSE
+}
+
+enum RoleEnum {
+  MOTHER
+  FATHER
+  OTHER
+}
+
+enum FamilyTypeEnum {
+  PADRE_MADRE
+  MADRE_MADRE
+  PADRE_PADRE
+  MADRE
+  PADRE
+  OTHER
+}
+
+enum TrimesterEnum {
+  TRIMESTER_1
+  TRIMESTER_2
+  TRIMESTER_3
+}
+
+enum LicenseDurationEnum {
+  LESS_THAN_1_MONTH
+  ONE_TO_3_MONTHS
+  THREE_TO_6_MONTHS
+  MORE_THAN_6_MONTHS
+  OTHER
+}
+
+enum WorkModalityEnum {
+  FULL_TIME_PRESENTIAL
+  FULL_TIME_HYBRID
+  FULL_TIME_REMOTE
+  PART_TIME_PRESENTIAL
+  PART_TIME_HYBRID
+  PART_TIME_REMOTE
+  OTHER
+}
+
+enum OrganizationSizeEnum {
+  SMALL
+  MEDIUM
+  LARGE
+  ENTERPRISE
+}
+
+enum OrganizationStageEnum {
+  STARTUP
+  SCALING
+  MATURE
+}
+
+enum CheckInCategoryEnum {
+  WORK
+  WELLBEING
+  HOME
+}
+
+enum TrafficLightEnum {
+  RED
+  YELLOW
+  GREEN
+}
